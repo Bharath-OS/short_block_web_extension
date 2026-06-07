@@ -333,3 +333,25 @@ hr {
 .block-toggle.blocked:hover {
   background: #b91c1c;
 }
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.total-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.total-value {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}

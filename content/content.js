@@ -231,8 +231,8 @@ function startSync() {
 async function extendTime(minutes) {
   const { extensionsUsed, usage } = await chrome.storage.local.get(['extensionsUsed', 'usage']);
   const used = (extensionsUsed && extensionsUsed[currentPlatform]) || 0;
-  if (used >= 3) {
-    alert('Maximum extensions used for today (3/3).');
+  if (used >= 1) {
+    alert('Extension already used for today (1/1).');
     return;
   }
   const capped = Math.min(minutes, 20);
@@ -259,20 +259,20 @@ async function handleBlockOverlayClick(e) {
     if (currentPlatform) {
       blocked[currentPlatform] = false;
       await chrome.storage.local.set({ blocked });
-      init();
     }
   }
 }
 
-async function init() {
+async function init(force) {
   const detected = detectPlatform();
   if (!detected) {
     if (currentPlatform) cleanup();
     return;
   }
-  if (isOverlayBlocked() && currentPlatform === detected.name) {
+  if (!force && isOverlayBlocked() && currentPlatform === detected.name) {
     return;
   }
+  await syncUsedTime();
   cleanup();
   currentPlatform = detected.name;
   currentLabel = detected.label;
@@ -337,7 +337,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (!currentPlatform) return;
   if (changes.blocked || changes.extensionsUsed || changes.usage || changes.limits || changes.mode) {
     if (isOverlayBlocked() || changes.blocked || changes.limits || changes.mode) {
-      init();
+      init(!!changes.blocked);
     }
   }
 });

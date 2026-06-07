@@ -60,6 +60,16 @@ function updateLimitsUI() {
   });
 }
 
+function getTotalUsedSeconds() {
+  const today = getToday();
+  let total = 0;
+  for (const p of ['youtube', 'instagram', 'facebook']) {
+    const u = STATE.usage[p];
+    if (u && u.date === today) total += u.usedSeconds || 0;
+  }
+  return total;
+}
+
 function updateStatusUI() {
   ['youtube', 'instagram', 'facebook'].forEach(platform => {
     const remaining = getRemainingSeconds(platform);
@@ -88,6 +98,9 @@ function updateStatusUI() {
       btnEl.classList.remove('blocked');
     }
   });
+
+  const totalUsed = getTotalUsedSeconds();
+  document.getElementById('total-used').textContent = formatTime(totalUsed);
 }
 
 async function saveLimit(platform, minutes) {
