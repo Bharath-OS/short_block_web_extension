@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Short Blocker</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1><span class="logo">&#128680;</span> Short Blocker</h1>
+    </header>
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" data-mode="global">Global</button>
+      <button class="mode-btn" data-mode="individual">Individual</button>
+    </div>
+
+    <div id="global-section" class="section">
+      <label class="section-label">Daily limit for all platforms</label>
+      <div class="presets" id="global-presets">
+        <button data-value="5">5</button>
+        <button data-value="10">10</button>
+        <button data-value="15">15</button>
+        <button data-value="20">20</button>
+        <button data-value="30">30</button>
+        <button data-value="45">45</button>
+        <button data-value="60">60</button>
+      </div>
+      <div class="custom-row">
+        <input type="number" id="global-custom" min="1" max="999" placeholder="Custom">
+        <span class="unit">min</span>
+        <button id="global-save" class="save-btn">Save</button>
+      </div>
+    </div>
+
+    <div id="individual-section" class="section" style="display:none">
+      <div class="platform-input">
+        <label>YouTube</label>
+        <div class="platform-input-row">
+          <button class="preset-sm" data-platform="youtube" data-value="5">5</button>
+          <button class="preset-sm" data-platform="youtube" data-value="10">10</button>
+          <button class="preset-sm" data-platform="youtube" data-value="15">15</button>
+          <button class="preset-sm" data-platform="youtube" data-value="20">20</button>
+          <button class="preset-sm" data-platform="youtube" data-value="30">30</button>
+          <button class="preset-sm" data-platform="youtube" data-value="60">60</button>
+          <input type="number" class="plat-custom" data-platform="youtube" min="1" placeholder="min">
+          <button class="save-sm" data-platform="youtube">Save</button>
+        </div>
+      </div>
+      <div class="platform-input">
+        <label>Instagram</label>
+        <div class="platform-input-row">
+          <button class="preset-sm" data-platform="instagram" data-value="5">5</button>
+          <button class="preset-sm" data-platform="instagram" data-value="10">10</button>
+          <button class="preset-sm" data-platform="instagram" data-value="15">15</button>
+          <button class="preset-sm" data-platform="instagram" data-value="20">20</button>
+          <button class="preset-sm" data-platform="instagram" data-value="30">30</button>
+          <button class="preset-sm" data-platform="instagram" data-value="60">60</button>
+          <input type="number" class="plat-custom" data-platform="instagram" min="1" placeholder="min">
+          <button class="save-sm" data-platform="instagram">Save</button>
+        </div>
+      </div>
+      <div class="platform-input">
+        <label>Facebook</label>
+        <div class="platform-input-row">
+          <button class="preset-sm" data-platform="facebook" data-value="5">5</button>
+          <button class="preset-sm" data-platform="facebook" data-value="10">10</button>
+          <button class="preset-sm" data-platform="facebook" data-value="15">15</button>
+          <button class="preset-sm" data-platform="facebook" data-value="20">20</button>
+          <button class="preset-sm" data-platform="facebook" data-value="30">30</button>
+          <button class="preset-sm" data-platform="facebook" data-value="60">60</button>
+          <input type="number" class="plat-custom" data-platform="facebook" min="1" placeholder="min">
+          <button class="save-sm" data-platform="facebook">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <hr>
+
+    <div class="section">
+      <label class="section-label">Today's Status</label>
+      <div class="status-list">
+        <div class="status-row" data-platform="youtube">
+          <span class="status-name">YouTube</span>
+          <span class="status-time">--:--</span>
+          <button class="block-toggle" data-platform="youtube">&#128994; Allow</button>
+        </div>
+        <div class="status-row" data-platform="instagram">
+          <span class="status-name">Instagram</span>
+          <span class="status-time">--:--</span>
+          <button class="block-toggle" data-platform="instagram">&#128994; Allow</button>
+        </div>
+        <div class="status-row" data-platform="facebook">
+          <span class="status-name">Facebook</span>
+          <span class="status-time">--:--</span>
+          <button class="block-toggle" data-platform="facebook">&#128994; Allow</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
