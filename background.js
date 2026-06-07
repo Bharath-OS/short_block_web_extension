@@ -9,6 +9,7 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
       limits: { global: 30, youtube: 30, instagram: 30, facebook: 30 },
       usage: {},
       blocked: {},
+      blockedToday: {},
       extensionsUsed: {}
     });
   }
@@ -35,6 +36,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       delete extensionsUsed[platform];
     }
     await chrome.storage.local.set({ extensionsUsed });
+
+    const { blockedToday } = await chrome.storage.local.get('blockedToday');
+    for (const [platform, data] of Object.entries(blockedToday || {})) {
+      if (data.date !== today) delete blockedToday[platform];
+    }
+    await chrome.storage.local.set({ blockedToday });
   }
 });
 
