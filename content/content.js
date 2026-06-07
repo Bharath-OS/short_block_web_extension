@@ -22,6 +22,7 @@ let remainingSeconds = 0;
 let totalLimitSeconds = 0;
 let timerInterval = null;
 let syncInterval = null;
+let videoCheckInterval = null;
 let overlayContainer = null;
 let warningShown = false;
 
@@ -66,6 +67,32 @@ function isOverlayBlocked() {
   return !!document.getElementById('sb-block-overlay');
 }
 
+function pauseAllVideos() {
+  document.querySelectorAll('video').forEach(v => {
+    if (!v.paused) v.pause();
+  });
+}
+
+function startVideoMonitor() {
+  stopVideoMonitor();
+  pauseAllVideos();
+  videoCheckInterval = setInterval(pauseAllVideos, 400);
+}
+
+function stopVideoMonitor() {
+  if (videoCheckInterval) {
+    clearInterval(videoCheckInterval);
+    videoCheckInterval = null;
+  }
+}
+
+function blockKeyboardNav(e) {
+  if (isOverlayBlocked() && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}
+
 function cleanupTimer() {
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   if (syncInterval) { clearInterval(syncInterval); syncInterval = null; }
@@ -81,12 +108,14 @@ function removeOverlay() {
 function removeBlockOverlay() {
   const el = document.getElementById('sb-block-overlay');
   if (el && el.parentNode) el.parentNode.removeChild(el);
+  stopVideoMonitor();
 }
 
 function cleanup() {
   cleanupTimer();
   removeOverlay();
   removeBlockOverlay();
+  stopVideoMonitor();
   currentPlatform = null;
   currentLabel = '';
   warningShown = false;
@@ -146,6 +175,7 @@ function showBlockOverlay(html, extraClass) {
   if (extraClass) el.classList.add(extraClass);
   el.innerHTML = html;
   document.body.appendChild(el);
+  startVideoMonitor();
 }
 
 function showManualBlocked() {
@@ -300,6 +330,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('beforeunload', syncUsedTime);
 
 document.addEventListener('click', handleBlockOverlayClick);
+document.addEventListener('keydown', blockKeyboardNav, { capture: true });
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
