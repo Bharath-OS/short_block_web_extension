@@ -215,32 +215,44 @@ function showManualBlocked() {
   `, 'sb-manual-block');
 }
 
-function showTimedOut() {
+async function showTimedOut() {
   cleanupTimer();
   removeOverlay();
-  showBlockOverlay(`
-    <div class="sb-blocked-icon">&#9200;</div>
-    <div class="sb-blocked-title">Time's up for ${currentLabel} today!</div>
-    <div class="sb-blocked-sub">You've used your daily limit.</div>
-    <div class="sb-extend-label">Extend by:</div>
-    <div class="sb-extend-buttons">
-      <button class="sb-action-btn" data-action="extend" data-minutes="5">5 min</button>
-      <button class="sb-action-btn" data-action="extend" data-minutes="10">10 min</button>
-      <button class="sb-action-btn" data-action="extend" data-minutes="15">15 min</button>
-      <button class="sb-action-btn" data-action="extend" data-minutes="20">20 min</button>
-    </div>
-  `, 'sb-timed-out');
+  const { extensionsUsed } = await sbGet('extensionsUsed');
+  const today = getToday();
+  const extUsed = extensionsUsed?._date === today && !!extensionsUsed[currentPlatform];
+  if (extUsed) {
+    await markBlockedToday(currentPlatform);
+    showBlockOverlay(`
+      <div class="sb-blocked-icon">&#9200;</div>
+      <div class="sb-blocked-title">Your time for today has ended</div>
+      <div class="sb-blocked-sub">You've used your daily limit and extension.</div>
+    `, 'sb-timed-out');
+  } else {
+    showBlockOverlay(`
+      <div class="sb-blocked-icon">&#9200;</div>
+      <div class="sb-blocked-title">Time's up for ${currentLabel} today!</div>
+      <div class="sb-blocked-sub">You've used your daily limit.</div>
+      <div class="sb-extend-label">Extend by:</div>
+      <div class="sb-extend-buttons">
+        <button class="sb-action-btn" data-action="extend" data-minutes="5">5 min</button>
+        <button class="sb-action-btn" data-action="extend" data-minutes="10">10 min</button>
+        <button class="sb-action-btn" data-action="extend" data-minutes="15">15 min</button>
+        <button class="sb-action-btn" data-action="extend" data-minutes="20">20 min</button>
+      </div>
+    `, 'sb-timed-out');
+  }
 }
 
 function startTimer() {
   if (timerInterval) clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
+  timerInterval = setInterval(async () => {
     remainingSeconds--;
     updateTimerDisplay();
     if (remainingSeconds <= 0) {
       clearInterval(timerInterval);
       timerInterval = null;
-      showTimedOut();
+      await showTimedOut();
     } else if (remainingSeconds === 300 && !warningShown) {
       showFiveMinWarning();
     }
@@ -345,11 +357,11 @@ async function init(force) {
   remainingSeconds = Math.max(0, totalLimitSeconds + extendedSeconds - usedSeconds);
   if (remainingSeconds <= 0) {
     await markBlockedToday(currentPlatform);
-    showTimedOut();
+    await showTimedOut();
     return;
   }
   if (await isBlockedToday(currentPlatform)) {
-    showTimedOut();
+    await showTimedOut();
     return;
   }
   showTimerOverlay();
