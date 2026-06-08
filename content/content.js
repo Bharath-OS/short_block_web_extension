@@ -144,15 +144,19 @@ function cleanup() {
 
 async function syncUsedTime() {
   if (!currentPlatform) return;
-  const used = totalLimitSeconds - remainingSeconds;
   const { usage } = await sbGet('usage');
   const today = getToday();
   if (!usage[currentPlatform]) {
-    usage[currentPlatform] = { date: today, usedSeconds: 0 };
+    usage[currentPlatform] = { date: today, usedSeconds: 0, extendedSeconds: 0 };
   } else if (usage[currentPlatform].date !== today) {
-    usage[currentPlatform] = { date: today, usedSeconds: 0 };
+    usage[currentPlatform].date = today;
+    usage[currentPlatform].usedSeconds = 0;
+    usage[currentPlatform].extendedSeconds = 0;
   }
-  usage[currentPlatform].usedSeconds = Math.max(usage[currentPlatform].usedSeconds, used);
+  const pUsage = usage[currentPlatform];
+  const extSec = pUsage.extendedSeconds || 0;
+  const used = totalLimitSeconds + extSec - remainingSeconds;
+  pUsage.usedSeconds = Math.max(pUsage.usedSeconds, used);
   await sbSet({ usage });
 }
 
@@ -267,9 +271,14 @@ async function extendTime(minutes) {
   const extSeconds = capped * 60;
 
   if (!usage[currentPlatform]) {
-    usage[currentPlatform] = { date: today, usedSeconds: 0 };
+    usage[currentPlatform] = { date: today, usedSeconds: 0, extendedSeconds: 0 };
+  } else if (usage[currentPlatform].date !== today) {
+    usage[currentPlatform].date = today;
+    usage[currentPlatform].usedSeconds = 0;
+    usage[currentPlatform].extendedSeconds = 0;
   }
-  usage[currentPlatform].usedSeconds = Math.max(0, (usage[currentPlatform].usedSeconds || 0) - extSeconds);
+  if (!usage[currentPlatform].extendedSeconds) usage[currentPlatform].extendedSeconds = 0;
+  usage[currentPlatform].extendedSeconds += extSeconds;
 
   if (blockedToday && blockedToday[currentPlatform]) {
     delete blockedToday[currentPlatform];
@@ -284,7 +293,7 @@ async function extendTime(minutes) {
   isExtending = false;
 
   totalLimitSeconds = await getLimitForPlatform(currentPlatform);
-  remainingSeconds = Math.max(0, totalLimitSeconds - usage[currentPlatform].usedSeconds);
+  remainingSeconds = Math.max(0, totalLimitSeconds + (usage[currentPlatform].extendedSeconds || 0) - (usage[currentPlatform].usedSeconds || 0));
   warningShown = false;
   showTimerOverlay();
   startTimer();
@@ -319,16 +328,21 @@ async function init(force) {
   cleanup();
   currentPlatform = detected.name;
   currentLabel = detected.label;
+
+  const { usage } = await sbGet('usage');
+  const today = getToday();
+  const pUsage = usage?.[currentPlatform];
+  const usedSeconds = (pUsage?.date === today) ? (pUsage.usedSeconds || 0) : 0;
+  const extendedSeconds = (pUsage?.date === today) ? (pUsage.extendedSeconds || 0) : 0;
+
   if (await isManuallyBlocked(currentPlatform)) {
     totalLimitSeconds = await getLimitForPlatform(currentPlatform);
-    const usedSeconds = await getUsedSeconds(currentPlatform);
-    remainingSeconds = Math.max(0, totalLimitSeconds - usedSeconds);
+    remainingSeconds = Math.max(0, totalLimitSeconds + extendedSeconds - usedSeconds);
     showManualBlocked();
     return;
   }
   totalLimitSeconds = await getLimitForPlatform(currentPlatform);
-  const usedSeconds = await getUsedSeconds(currentPlatform);
-  remainingSeconds = Math.max(0, totalLimitSeconds - usedSeconds);
+  remainingSeconds = Math.max(0, totalLimitSeconds + extendedSeconds - usedSeconds);
   if (remainingSeconds <= 0) {
     await markBlockedToday(currentPlatform);
     showTimedOut();
