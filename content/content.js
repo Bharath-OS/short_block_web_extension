@@ -25,6 +25,7 @@ let syncInterval = null;
 let videoCheckInterval = null;
 let overlayContainer = null;
 let warningShown = false;
+let isExtending = false;
 
 function getToday() {
   const d = new Date();
@@ -69,11 +70,10 @@ async function isBlockedToday(platformName) {
   return entry?.date === getToday() && entry.blocked;
 }
 
-function markBlockedToday(platformName) {
-  chrome.storage.local.get('blockedToday').then(({ blockedToday = {} }) => {
-    blockedToday[platformName] = { date: getToday(), blocked: true };
-    chrome.storage.local.set({ blockedToday });
-  });
+async function markBlockedToday(platformName) {
+  const { blockedToday = {} } = await chrome.storage.local.get('blockedToday');
+  blockedToday[platformName] = { date: getToday(), blocked: true };
+  await chrome.storage.local.set({ blockedToday });
 }
 
 function clearBlockedToday(platformName) {
@@ -215,7 +215,6 @@ function showManualBlocked() {
 function showTimedOut() {
   cleanupTimer();
   removeOverlay();
-  if (currentPlatform) markBlockedToday(currentPlatform);
   showBlockOverlay(`
     <div class="sb-blocked-icon">&#9200;</div>
     <div class="sb-blocked-title">Time's up for ${currentLabel} today!</div>
@@ -252,28 +251,38 @@ function startSync() {
 }
 
 async function extendTime(minutes) {
+  if (isExtending) return;
+  isExtending = true;
+
   const { extensionsUsed, usage, blockedToday } = await chrome.storage.local.get(['extensionsUsed', 'usage', 'blockedToday']);
   const today = getToday();
 
   const exts = (extensionsUsed && extensionsUsed._date === today) ? extensionsUsed : { _date: today };
   if (exts[currentPlatform]) {
+    isExtending = false;
     alert('Extension already used for today (1/1).');
     return;
   }
+
   const capped = Math.min(minutes, 20);
   const extSeconds = capped * 60;
-  if (usage && usage[currentPlatform]) {
-    usage[currentPlatform].usedSeconds = Math.max(0, (usage[currentPlatform].usedSeconds || 0) - extSeconds);
-    await chrome.storage.local.set({ usage });
+
+  if (!usage[currentPlatform]) {
+    usage[currentPlatform] = { date: today, usedSeconds: 0 };
   }
+  usage[currentPlatform].usedSeconds = Math.max(0, (usage[currentPlatform].usedSeconds || 0) - extSeconds);
+
   if (blockedToday && blockedToday[currentPlatform]) {
     delete blockedToday[currentPlatform];
-    await chrome.storage.local.set({ blockedToday });
   }
+
   exts[currentPlatform] = 1;
   exts._date = today;
-  await chrome.storage.local.set({ extensionsUsed: exts });
+
+  await chrome.storage.local.set({ usage, blockedToday, extensionsUsed: exts });
+
   removeBlockOverlay();
+  isExtending = false;
   init();
 }
 
@@ -315,7 +324,12 @@ async function init(force) {
   totalLimitSeconds = await getLimitForPlatform(currentPlatform);
   const usedSeconds = await getUsedSeconds(currentPlatform);
   remainingSeconds = Math.max(0, totalLimitSeconds - usedSeconds);
-  if (remainingSeconds <= 0 || await isBlockedToday(currentPlatform)) {
+  if (remainingSeconds <= 0) {
+    await markBlockedToday(currentPlatform);
+    showTimedOut();
+    return;
+  }
+  if (await isBlockedToday(currentPlatform)) {
     showTimedOut();
     return;
   }
@@ -363,6 +377,7 @@ document.addEventListener('keydown', blockKeyboardNav, { capture: true });
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
+  if (isExtending) return;
   if (!currentPlatform) return;
   if (changes.blocked || changes.extensionsUsed || changes.usage || changes.limits || changes.mode) {
     if (isOverlayBlocked() || changes.blocked || changes.limits || changes.mode) {
