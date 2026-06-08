@@ -38,6 +38,14 @@ function formatTime(seconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+async function sbGet(keys) {
+  try { return await chrome.storage.local.get(keys); } catch { return {}; }
+}
+
+async function sbSet(data) {
+  try { await chrome.storage.local.set(data); } catch {}
+}
+
 function detectPlatform() {
   for (const p of PLATFORMS) {
     if (p.test()) return p;
@@ -46,13 +54,13 @@ function detectPlatform() {
 }
 
 async function getLimitForPlatform(platformName) {
-  const { mode, limits } = await chrome.storage.local.get(['mode', 'limits']);
+  const { mode, limits } = await sbGet(['mode', 'limits']);
   if (mode === 'global') return (limits?.global || 30) * 60;
   return (limits?.[platformName] || 30) * 60;
 }
 
 async function getUsedSeconds(platformName) {
-  const { usage } = await chrome.storage.local.get('usage');
+  const { usage } = await sbGet('usage');
   const today = getToday();
   const pUsage = usage?.[platformName];
   if (pUsage?.date === today) return pUsage.usedSeconds || 0;
@@ -60,29 +68,20 @@ async function getUsedSeconds(platformName) {
 }
 
 async function isManuallyBlocked(platformName) {
-  const { blocked } = await chrome.storage.local.get('blocked');
+  const { blocked } = await sbGet('blocked');
   return blocked?.[platformName] || false;
 }
 
 async function isBlockedToday(platformName) {
-  const { blockedToday = {} } = await chrome.storage.local.get('blockedToday');
+  const { blockedToday = {} } = await sbGet('blockedToday');
   const entry = blockedToday[platformName];
   return entry?.date === getToday() && entry.blocked;
 }
 
 async function markBlockedToday(platformName) {
-  const { blockedToday = {} } = await chrome.storage.local.get('blockedToday');
+  const { blockedToday = {} } = await sbGet('blockedToday');
   blockedToday[platformName] = { date: getToday(), blocked: true };
-  await chrome.storage.local.set({ blockedToday });
-}
-
-function clearBlockedToday(platformName) {
-  chrome.storage.local.get('blockedToday').then(({ blockedToday = {} }) => {
-    if (blockedToday[platformName]) {
-      delete blockedToday[platformName];
-      chrome.storage.local.set({ blockedToday });
-    }
-  });
+  await sbSet({ blockedToday });
 }
 
 function isOverlayBlocked() {
@@ -146,7 +145,7 @@ function cleanup() {
 async function syncUsedTime() {
   if (!currentPlatform) return;
   const used = totalLimitSeconds - remainingSeconds;
-  const { usage } = await chrome.storage.local.get('usage');
+  const { usage } = await sbGet('usage');
   const today = getToday();
   if (!usage[currentPlatform]) {
     usage[currentPlatform] = { date: today, usedSeconds: 0 };
@@ -154,7 +153,7 @@ async function syncUsedTime() {
     usage[currentPlatform] = { date: today, usedSeconds: 0 };
   }
   usage[currentPlatform].usedSeconds = Math.max(usage[currentPlatform].usedSeconds, used);
-  await chrome.storage.local.set({ usage });
+  await sbSet({ usage });
 }
 
 function showTimerOverlay() {
@@ -254,7 +253,7 @@ async function extendTime(minutes) {
   if (isExtending) return;
   isExtending = true;
 
-  const { extensionsUsed, usage, blockedToday } = await chrome.storage.local.get(['extensionsUsed', 'usage', 'blockedToday']);
+  const { extensionsUsed, usage, blockedToday } = await sbGet(['extensionsUsed', 'usage', 'blockedToday']);
   const today = getToday();
 
   const exts = (extensionsUsed && extensionsUsed._date === today) ? extensionsUsed : { _date: today };
@@ -279,11 +278,17 @@ async function extendTime(minutes) {
   exts[currentPlatform] = 1;
   exts._date = today;
 
-  await chrome.storage.local.set({ usage, blockedToday, extensionsUsed: exts });
+  await sbSet({ usage, blockedToday, extensionsUsed: exts });
 
   removeBlockOverlay();
   isExtending = false;
-  init();
+
+  totalLimitSeconds = await getLimitForPlatform(currentPlatform);
+  remainingSeconds = Math.max(0, totalLimitSeconds - usage[currentPlatform].usedSeconds);
+  warningShown = false;
+  showTimerOverlay();
+  startTimer();
+  startSync();
 }
 
 async function handleBlockOverlayClick(e) {
@@ -293,10 +298,10 @@ async function handleBlockOverlayClick(e) {
   if (action === 'extend') {
     await extendTime(parseInt(btn.dataset.minutes));
   } else if (action === 'unblock') {
-    const { blocked } = await chrome.storage.local.get('blocked');
+    const { blocked } = await sbGet('blocked');
     if (currentPlatform) {
       blocked[currentPlatform] = false;
-      await chrome.storage.local.set({ blocked });
+      await sbSet({ blocked });
     }
   }
 }
